@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模型解释评估 - 音频版</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        
+        .audio-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .audio-content {
+            display: flex;
+            gap: 20px;
+            align-items: center; 
+            margin: 15px 0;
+            position: relative;
+        }
+        
+        .audio-image {
+            flex: 0 0 auto; 
+            width: 350px;   
+            height: 250px;  
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .audio-image:hover {
+            transform: scale(1.03);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .audio-image img {
+            width: 100%;  
+            height: 100%;   
+            object-fit: cover; 
+            display: block;
+        }
+        
+        .audio-image .play-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .audio-image:hover .play-overlay {
+            opacity: 1;
+        }
+        
+        .play-icon {
+            color: white;
+            font-size: 48px;
+        }
+        
+        .audio-controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .audio-player {
+            width: 100%;
+        }
+
+        .audio-tip {
+            text-align: center; 
+            margin-top: 10px;
+            width: 100%; 
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .explanations {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .explanation {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .explanation h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .feature-list {
+            list-style-type: none;
+        }
+        
+        .feature-item {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .feature-percentage {
+            font-weight: bold;
+            color: #2980b9;
+        }
+        
+        .evaluation-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .evaluation-section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        
+        .question {
+            margin-bottom: 25px;
+        }
+        
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .option input[type="radio"],
+        .option input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+        
+        .submit-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+            transition: background-color 0.3s;
+        }
+        
+        .submit-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .image-container {
+            position: relative;
+        }
+        
+        .size-btn {
+            padding: 5px 10px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .size-btn:hover {
+            background: #e0e0e0;
+        }
+        
+        .size-btn.active {
+            background: #3498db;
+            color: white;
+        }
+        
+        @media (max-width: 768px) {
+            .explanations {
+                flex-direction: column;
+            }
+            
+            .explanation {
+                min-width: 100%;
+            }
+            
+            .audio-content {
+                flex-direction: column;
+            }
+            
+            .audio-image {
+                width: 100%; 
+                max-width: 100%;
+                height: 200px; 
+                margin: 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Model interpretation and evaluation</h1>
+        <p>Please listen to the audio first, and then evaluate the rationality of the explanations given by the two models</p>
+    </header>
+    
+    <div class="container">
+        <section class="audio-section">
+            <h2>Audio Content</h2>
+            <div class="audio-content">
+                <div class="audio-image image-container">
+                    <img src="1.png" alt="音频相关内容">
+                    <div class="play-overlay">
+                        <div class="play-icon">▶</div>
+                    </div>
+                </div>
+                <div class="audio-controls">
+                    <audio controls class="audio-player" id="audioPlayer">
+                        <source src="sample-audio.mp3" type="audio/mpeg">
+                        Your browser does not support the audio playback function.
+                    </audio>
+                    <p class="audio-tip"><strong>Tip：</strong> Click on the picture on the left or use the player above to listen to the audio content.</p>
+                </div>
+            </div>
+        </section>
+        
+        <section class="explanations">
+            <div class="explanation">
+                <h3>Model 1 </h3>
+                <p><strong>Prediction Result：</strong> "Parking Meter"</p>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-percentage">78.2%</span> - Sometimes has a green or red light to indicate if it is open or closed
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-percentage">29.7%</span> - May have a purple hue
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-percentage">29.4%</span> - Other components (e.g., handlebars, seat) may be a variety of colors
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-percentage">28.6%</span> - Taxi sian on the roof
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-percentage">28.6%</span> - A washing machine is typically large and box-shaped
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-percentage">-93.9%</span> - Others
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="explanation">
+                <h3>Model 2 </h3>
+                <p><strong>Prediction Result：</strong> "Parking Meter"</p>
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <span class="feature-percentage">44.8%</span> - Meter maid
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-percentage">40.0%</span> - Button for adding time
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-percentage">13.6%</span> - Meter
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-percentage">1.7%</span> - Button to start the timer
+                    </li>
+                    <li class="feature-item">
+                        <span class="feature-percentage">0.0%</span> - Others
+                    </li>
+                </ul>
+            </div>
+        </section>
+        
+        <section class="evaluation-section">
+            <h2>Evaluate the rationality of the explanation</h2>
+            
+            <div class="question">
+                <p><strong>Q1：Which Explanation is more reasonable?</strong> </p>
+                <div class="options">
+                    <div class="option">
+                        <input type="radio" id="model1-clear" name="reasonableness" value="model1-clear">
+                        <label for="model1-clear">Model 1 Clearly More Reasonable</label>
+                    </div>
+                    <div class="option">
+                        <input type="radio" id="model1-slight" name="reasonableness" value="model1-slight">
+                        <label for="model1-slight">Model 1 Sightly More Reasonable</label>
+                    </div>
+                    <div class="option">
+                        <input type="radio" id="equal" name="reasonableness" value="equal">
+                        <label for="equal"> Both Models Equally Reasonable</label>
+                    </div>
+                    <div class="option">
+                        <input type="radio" id="model2-slight" name="reasonableness" value="model2-slight">
+                        <label for="model2-slight">Model 2 Sightly More Reasonable</label>
+                    </div>
+                    <div class="option">
+                        <input type="radio" id="model2-clear" name="reasonableness" value="model2-clear">
+                        <label for="model2-clear">Model 2 Clearly More Reasonable</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="question">
+                <p><strong>Q 2：Why? Select all that apply</strong> </p>
+                <div class="options">
+                    <div class="option">
+                        <input type="checkbox" id="reason1" name="reasons" value="relevant-to-image">
+                        <label for="reason1">The more reasonable explanation uses features that are more <strong>relevant to the image</strong></label>
+                    </div>
+                    <div class="option">
+                        <input type="checkbox" id="reason2" name="reasons" value="relevant-to-prediction">
+                        <label for="reason2">The more reasonable explanation uses features are more <strong>relevant to the prediction</strong> </label>
+                    </div>
+                    <div class="option">
+                        <input type="checkbox" id="reason3" name="reasons" value="more-informative">
+                        <label for="reason3">The more reasonable explanation is more <strong>informative</strong></label>
+                    </div>
+                    <div class="option">
+                        <input type="checkbox" id="reason4" name="reasons" value="equally-reasonable">
+                        <label for="reason4">N/A, both explanations equally reasonable</label>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="submit-btn" onclick="submitEvaluation()">Submittion</button>
+        </section>
+    </div>
+    
+    <script>
+        // 获取音频和图片
+        const audioPlayer = document.getElementById('audioPlayer');
+        const audioImage = document.querySelector('.audio-image');
+        
+        // 图片点击
+        audioImage.addEventListener('click', function() {
+            // 播放音频
+            audioPlayer.play();
+            
+            // 鼠标放上去图片放缩效果
+            this.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                this.style.transform = 'scale(1)';
+            }, 200);
+        });
+        
+        function submitEvaluation() {
+            const reasonableness = document.querySelector('input[name="reasonableness"]:checked');
+            const reasons = document.querySelectorAll('input[name="reasons"]:checked');
+            
+            if (!reasonableness) {
+                alert('Please choose which explanation is more reasonable');
+                return;
+            }
+            
+            if (reasons.length === 0) {
+                alert('Please choose at least one reason');
+                return;
+            }
+            
+            // 表单归零
+            document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
+            document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => checkbox.checked = false);
+        }
+    </script>
+</body>
+</html>
